@@ -4,14 +4,14 @@ An independent PyTorch reimplementation of **World Models** by David Ha and Jür
 
 The project builds the architecture component by component, pairing reusable implementations with explanatory notebooks. The initial reproduction target is CarRacing; training a controller inside a learned environment is a later milestone.
 
-**Status:** Work in progress. The VAE and a basic training step are implemented. The memory notebook introduces the LSTM backbone; the complete MDN-RNN and controller are not yet implemented. No benchmark reproduction results are reported.
+**Status:** Work in progress. The VAE and MDN-RNN computation cores are implemented. Environment data collection, full training pipelines, and the controller remain pending. No benchmark reproduction results are reported.
 
 ## Architecture
 
 | Component | Role | Current implementation |
 | --- | --- | --- |
 | **Vision (V)** | Encode a 64 × 64 RGB image as a distribution over 32-dimensional latent vectors | Convolutional VAE, reparameterization, decoder, reconstruction and KL losses |
-| **Memory (M)** | Summarize observations and actions to predict the next latent distribution | Introductory LSTM notebook; mixture-density head and training pending |
+| **Memory (M)** | Summarize observations and actions to predict the next latent distribution | LSTM with a per-coordinate Gaussian-mixture head, stable likelihood loss, sampling, and a basic training step |
 | **Controller (C)** | Select actions from the current latent representation and memory state | Planned |
 
 The VAE reconstructs the current frame. The memory model will learn temporal dynamics from latent–action sequences. The controller will use visual and memory features to select actions.
@@ -52,7 +52,9 @@ Start with **Vision architecture**, then **Memory**. Their synthetic inputs are 
 | Path | Purpose |
 | --- | --- |
 | `src/world_models/models/vae.py` | VAE architecture and latent sampling |
+| `src/world_models/models/mdn_rnn.py` | Recurrent latent dynamics, MDN likelihood, and sampling |
 | `src/world_models/training/vae.py` | Basic VAE objective and optimizer step |
+| `src/world_models/training/mdn_rnn.py` | Sequence alignment and teacher-forced MDN-RNN step |
 | `src/world_models/` | Package structure for data, environments, models, training, and evaluation |
 | `notebooks/` | Guided explanations and interactive inspection |
 | `configs/` | Experiment configurations |
@@ -100,7 +102,8 @@ Before running experiments:
 
 - [x] Implement the convolutional VAE and basic training step.
 - [x] Introduce sequence alignment and recurrent state in a memory notebook.
-- [ ] Implement the mixture-density output head, likelihood loss, and sampling.
+- [x] Implement the mixture-density output head, likelihood loss, and sampling.
+- [ ] Overfit the MDN-RNN on a deterministic synthetic trajectory batch.
 - [ ] Collect and validate environment trajectories.
 - [ ] Train visual and memory models on recorded data.
 - [ ] Implement and optimize the controller.
