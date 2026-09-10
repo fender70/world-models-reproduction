@@ -1,7 +1,7 @@
 # World Models reproduction
 
 A guided PyTorch reimplementation of Ha & Schmidhuber (2018).
-Status: repository scaffold only. Models, data collection, and training are not implemented.
+Status: VAE and basic VAE training step implemented; guided memory notebook started. Data collection, complete MDN-RNN, and controller training remain unimplemented.
 There is no single canonical research layout; this uses a conventional installable `src/` package with configuration-driven experiments.
 
 ## Setup
@@ -50,3 +50,11 @@ The smoke configuration is a proposed debugging budget, not a faithful reproduct
 - Modern environment documentation: https://gymnasium.farama.org/environments/box2d/car_racing/
 
 No original implementation or weights are bundled. No public repository has been created. After extraction, initialize version control with `git init -b main`, review `git status`, then make your initial commit.
+
+## Architecture learning
+
+Run `uv sync --extra research --extra dev` and launch `uv run --all-extras jupyter lab`.
+Start with `notebooks/00_world_models_architecture.ipynb`, then `notebooks/01_memory.ipynb`.
+The original uploaded learning notebook is retained in `notebooks/archive/`.
+The refactor does not recover in-memory learned weights from saved notebook outputs.
+Commit your locally generated `uv.lock` and `.python-version`; keep `.venv` ignored.
