@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "world-models-reproduction"
+version = "0.1.0"
+description = "Guided World Models reproduction scaffold"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+research = ["torch", "numpy", "gymnasium[box2d]", "Pillow", "cma", "matplotlib"]
+dev = ["pytest", "ruff", "jupyterlab", "ipykernel"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100

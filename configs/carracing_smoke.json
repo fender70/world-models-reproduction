@@ -1,0 +1,27 @@
+{
+  "name": "carracing_smoke",
+  "status": "proposed_debug_only",
+  "seed": 0,
+  "environment": {
+    "id": "CarRacing-v3",
+    "continuous": true,
+    "domain_randomize": false
+  },
+  "data": {
+    "episodes": 8,
+    "resize": [
+      64,
+      64
+    ],
+    "split_unit": "episode"
+  },
+  "model": {
+    "latent_dim": 32,
+    "hidden_dim": 256,
+    "mixtures": 5
+  },
+  "training": {
+    "implemented": false
+  },
+  "output_root": "runs"
+}
