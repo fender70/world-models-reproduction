@@ -1,20 +1,61 @@
 # World Models Reproduction
 
-An independent PyTorch reimplementation of **World Models** by David Ha and Jürgen Schmidhuber (2018), developed to understand learned visual representations, recurrent dynamics, and control.
+A guided PyTorch reimplementation of **World Models** by David Ha and Jürgen Schmidhuber (2018). The project rebuilds the vision, memory, and controller pipeline for CarRacing while keeping reusable code separate from explanatory notebooks.
 
-The project builds the architecture component by component, pairing reusable implementations with explanatory notebooks. The initial reproduction target is CarRacing; training a controller inside a learned environment is a later milestone.
-
-**Status:** Work in progress. The VAE and a basic training step are implemented. The memory notebook introduces the LSTM backbone; the complete MDN-RNN and controller are not yet implemented. No benchmark reproduction results are reported.
+> **Status:** End-to-end architecture and pilot training pipeline implemented. A 20-episode pilot dataset has been collected, the VAE and MDN-RNN have been trained on it, and controller optimization with CMA-ES is the current milestone. The results below are pipeline checks from a small pilot, not a reproduction of the paper's reported benchmark.
 
 ## Architecture
 
-| Component | Role | Current implementation |
-| --- | --- | --- |
-| **Vision (V)** | Encode a 64 × 64 RGB image as a distribution over 32-dimensional latent vectors | Convolutional VAE, reparameterization, decoder, reconstruction and KL losses |
-| **Memory (M)** | Summarize observations and actions to predict the next latent distribution | Introductory LSTM notebook; mixture-density head and training pending |
-| **Controller (C)** | Select actions from the current latent representation and memory state | Planned |
+The agent is divided into three components:
 
-The VAE reconstructs the current frame. The memory model will learn temporal dynamics from latent–action sequences. The controller will use visual and memory features to select actions.
+| Component | Role | Implementation |
+| --- | --- | --- |
+| **Vision (V)** | Compress each 64 × 64 RGB frame into a 32-dimensional latent distribution | Convolutional VAE with reparameterization and decoder |
+| **Memory (M)** | Model the next latent distribution from current latent, action, and recurrent state | LSTM with a per-coordinate Gaussian mixture density head |
+| **Controller (C)** | Map the current latent and memory state to steering, gas, and brake | Single linear layer with 867 parameters |
+
+At timestep (t):
+
+[
+z_t \sim V(o_t), \qquad
+a_t = C([z_t, h_t]), \qquad
+h_{t+1} = M(z_t, a_t, h_t).
+]
+
+The controller reads (z_t) and the MDN-RNN hidden state (h_t). The predicted next latent is not fed directly into the controller.
+
+## Current progress
+
+- [x] Implement the convolutional VAE and paper-style VAE loss.
+- [x] Implement the MDN-RNN, Gaussian-mixture likelihood, and recurrent state handling.
+- [x] Implement the 867-parameter linear controller and full agent step.
+- [x] Connect the VAE, memory, controller, and Gymnasium CarRacing environment.
+- [x] Implement the paper-inspired random-network collection policy.
+- [x] Collect a 20-episode, 20,000-transition pilot dataset.
+- [x] Preserve episode-level training and validation splits.
+- [x] Train a pilot VAE and inspect held-out reconstructions.
+- [x] Encode ordered episodes into latent distribution parameters.
+- [x] Train a pilot MDN-RNN on full latent-action sequences.
+- [ ] Optimize the controller with CMA-ES.
+- [ ] Evaluate vision-only and vision-plus-memory controllers on held-out tracks.
+- [ ] Scale data collection and training toward the paper's experimental budget.
+- [ ] Explore imagined rollouts and training inside a learned environment.
+
+## Pilot results
+
+These values verify that the training pipeline learns on the current small dataset. They should not be compared directly with the paper's CarRacing score.
+
+| Stage | Result |
+| --- | --- |
+| Dataset | 20 episodes, 1,000 transitions each |
+| Split | 16 training episodes, 4 validation episodes |
+| VAE validation loss | 171.08 → 68.75 over 5 epochs |
+| VAE validation reconstruction term | 134.78 → 50.95 |
+| VAE validation raw KL | 34.61 → 17.37 |
+| MDN-RNN validation NLL | 42.118 → 31.146 over 10 epochs |
+| Untrained-controller baseline | −81.12 mean reward on 3 development tracks |
+
+Held-out VAE reconstructions preserve the main road geometry, car location, and scene structure in the pilot data. Controller performance has not yet been optimized or evaluated as a reproduction result.
 
 ## Getting started
 
@@ -27,89 +68,97 @@ uv run --all-extras python -m ipykernel install \
 uv run --all-extras jupyter lab
 ```
 
-Select the **World Models** kernel when opening a notebook. The `research` and `dev` extras are defined in `pyproject.toml` and include the modeling, environment, and notebook dependencies.
+Select the **World Models** kernel in Jupyter.
 
-To check the configuration loader:
+To inspect the smoke configuration:
 
 ```bash
-uv run --all-extras python -m world_models.inspect_config configs/carracing_smoke.json
+uv run --all-extras python -m world_models.inspect_config \
+  configs/carracing_smoke.json
 ```
 
-Gymnasium's Box2D dependencies may require SWIG and a native compiler, depending on the platform. See the [CarRacing documentation](https://gymnasium.farama.org/environments/box2d/car_racing/) for environment details.
+Gymnasium's Box2D dependencies may require SWIG and a native compiler. See the [CarRacing documentation](https://gymnasium.farama.org/environments/box2d/car_racing/) for platform-specific setup.
 
-## Notebooks
+## Notebook guide
 
-| Notebook | Focus |
+Run the notebooks in order:
+
+| Notebook | Purpose |
 | --- | --- |
-| [Vision architecture](notebooks/00_world_models_architecture.ipynb) | Run the factored VAE, inspect latent sampling, and take a basic training step |
-| [Memory](notebooks/01_memory.ipynb) | Align latent–action sequences, inspect LSTM shapes, and carry recurrent state across timesteps |
-| [Environment and data](notebooks/00_environment_and_data.ipynb) | Starting point for environment inspection and data collection |
+| [00_vae.ipynb](notebooks/00_vae.ipynb) | Build and inspect the VAE, latent sampling, and reconstruction objective |
+| [01_memory.ipynb](notebooks/01_memory.ipynb) | Build the MDN-RNN, inspect mixture likelihoods, and verify recurrent state |
+| [02_controller.ipynb](notebooks/02_controller.ipynb) | Build the controller and connect it to memory |
+| [03_carracing.ipynb](notebooks/03_carracing.ipynb) | Run the full agent and collect paper-inspired CarRacing trajectories |
+| [04_train_vae.ipynb](notebooks/04_train_vae.ipynb) | Train and validate the VAE on collected frames |
+| [05_train_memory.ipynb](notebooks/05_train_memory.ipynb) | Encode ordered episodes and train the MDN-RNN |
 
-Start with **Vision architecture**, then **Memory**. Their synthetic inputs are computation checks, not evidence of learned driving behavior. Earlier exploratory work is preserved in `notebooks/archive/`.
+Generated datasets and checkpoints are stored under `data/` and `runs/` and are excluded from source control.
 
 ## Repository structure
 
-| Path | Purpose |
-| --- | --- |
-| `src/world_models/models/vae.py` | VAE architecture and latent sampling |
-| `src/world_models/training/vae.py` | Basic VAE objective and optimizer step |
-| `src/world_models/` | Package structure for data, environments, models, training, and evaluation |
-| `notebooks/` | Guided explanations and interactive inspection |
-| `configs/` | Experiment configurations |
-| `docs/` | Reproduction protocol, data contract, deviations, and experiment notes |
-| `tests/` | Reserved for implementation correctness checks |
-| `scripts/` | Reserved for experiment entry points |
-| `data/` | Generated datasets and manifests |
-| `runs/` | Run outputs, checkpoints, and metrics |
-| `reports/` | Curated results and figures |
-
-## Using the VAE
-
-```python
-import torch
-
-from world_models.models.vae import VAE
-from world_models.training.vae import train_vae_step
-
-model = VAE(latent_dim=32)
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
-
-# Synthetic batch for checking the computation; image values are in [0, 1].
-images = torch.rand(2, 3, 64, 64)
-reconstructions, mu, logvar = model(images)
-metrics = train_vae_step(model, images, optimizer, beta=1.0)
-print(metrics)
+```text
+world-models-reproduction/
+├── configs/                    # Experiment configurations
+├── data/                       # Generated datasets and manifests
+├── docs/                       # Protocol, data contract, and deviations
+├── notebooks/                  # Guided implementation and training notebooks
+├── reports/                    # Curated figures and results
+├── runs/                       # Checkpoints and metrics
+├── scripts/                    # Future command-line experiment entry points
+├── src/world_models/
+│   ├── agent.py                # One agent interaction step
+│   ├── data/
+│   │   ├── collection.py       # Random-network trajectory collection
+│   │   ├── frames.py           # Frame dataset
+│   │   └── latents.py          # Episode encoding and latent dataset
+│   ├── envs/carracing.py       # CarRacing preprocessing and VAE encoding
+│   ├── evaluation/rollout.py   # Real-environment rollout evaluation
+│   ├── models/
+│   │   ├── controller.py       # Linear controller
+│   │   ├── mdn_rnn.py          # LSTM and mixture-density output head
+│   │   └── vae.py              # Convolutional VAE
+│   └── training/
+│       ├── mdn_rnn.py          # MDN loss and memory training epoch
+│       └── vae.py              # VAE losses and training epoch
+└── tests/                      # Correctness checks
 ```
 
-Each new model starts with randomly initialized weights. Saved notebook outputs do not preserve model weights; trained parameters must be saved separately as checkpoints.
+## Reproduction design
 
-The basic loss sums reconstruction errors over pixels and KL divergence over latent dimensions, then averages each term over the batch. It does not yet reproduce the historical KL tolerance/clamping recipe.
+The current collection pipeline follows the original implementation's broad procedure:
 
-## Reproduction scope
+1. Randomize VAE, MDN-RNN, and controller parameters for each rollout.
+2. Run the resulting fixed random policy for up to 1,000 steps.
+3. Store aligned observations and actions.
+4. Train the VAE without reward labels.
+5. Encode ordered episodes and train the MDN-RNN without reward labels.
+6. Freeze V and M, then optimize C from cumulative reward.
 
-This project uses a modern PyTorch implementation and targets Gymnasium's `CarRacing-v3`. Environment and training differences must be documented before comparing results with the original paper. The smoke configuration is a debugging budget, not a faithful reproduction configuration.
+For each transition, the stored alignment is:
 
-Before running experiments:
+```text
+observation[t], action[t] -> observation[t + 1]
+```
 
-- Follow the [reproduction protocol](docs/reproduction_protocol.md) and [data contract](docs/data_contract.md).
-- Record implementation differences in [deviations](docs/deviations.md).
-- Log seeds, hardware, dependency versions, configuration, and outcomes using the [experiment template](docs/experiment_template.md).
-- Commit `uv.lock` after resolving dependencies, and record the Python version. Keep generated datasets and run artifacts out of source control.
+The saved format retains (T+1) observations for (T) actions. Episode splits are preserved to prevent neighboring frames from leaking across training and validation.
 
-## Roadmap
+## Scope and deviations
 
-- [x] Implement the convolutional VAE and basic training step.
-- [x] Introduce sequence alignment and recurrent state in a memory notebook.
-- [ ] Implement the mixture-density output head, likelihood loss, and sampling.
-- [ ] Collect and validate environment trajectories.
-- [ ] Train visual and memory models on recorded data.
-- [ ] Implement and optimize the controller.
-- [ ] Evaluate vision-only and vision-plus-memory controllers on held-out tracks.
-- [ ] Explore training inside a learned environment and transfer to the real simulator.
+This is an independent learning and reproduction project. It targets modern PyTorch and Gymnasium's `CarRacing-v3`, while the original work used TensorFlow and `CarRacing-v0`.
+
+The pilot also differs from the reported experiment in scale: it uses 20 rollouts, while the paper describes 10,000. Legacy image preprocessing is approximated with Pillow, so pixel-level output can vary from the original SciPy implementation. These differences must be resolved or documented before making benchmark-level comparisons.
+
+See:
+
+- [Reproduction protocol](docs/reproduction_protocol.md)
+- [Data contract](docs/data_contract.md)
+- [Implementation deviations](docs/deviations.md)
+- [Experiment template](docs/experiment_template.md)
 
 ## References
 
-- David Ha and Jürgen Schmidhuber. **World Models** (2018). [Interactive paper](https://worldmodels.github.io/).
-- David Ha. [World Models experiments and reproduction guide](https://blog.otoro.net/2018/06/09/world-models-experiments/).
+- David Ha and Jürgen Schmidhuber. **World Models** (2018). [Interactive paper](https://worldmodels.github.io/)
+- David Ha. [World Models Experiments](https://blog.otoro.net/2018/06/09/world-models-experiments/)
+- [Original experiment code](https://github.com/hardmaru/WorldModelsExperiments)
 
-This is an independent learning and reproduction project. Original implementation code and pretrained weights are not bundled.
+Original implementation code and pretrained weights are not bundled.
